@@ -36,15 +36,16 @@ export async function getUser(): Promise<UserProfile | null> {
 
     console.log('👤 GETUSER: Auth user found:', authUser.email, 'ID:', authUser.id);
 
+    // 🚀 Perubahan di sini: Menggunakan maybeSingle() agar tidak error saat database masih kosong
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('nama, email')
       .eq('id', authUser.id)
-      .single();
+      .maybeSingle(); 
 
     if (error) {
       console.error('❌ GETUSER: Profile fetch error:', error.message);
-      return cachedUser;
+      return null;
     }
 
     if (!profile) {
@@ -52,7 +53,7 @@ export async function getUser(): Promise<UserProfile | null> {
       cachedUser = null;
       cacheLoaded = false;
       try { window.dispatchEvent(new Event('user-updated')); } catch {}
-      return null;
+      return null; // Mengembalikan null agar Login.tsx tahu profil harus dibuat baru
     }
 
     cachedUser = {
