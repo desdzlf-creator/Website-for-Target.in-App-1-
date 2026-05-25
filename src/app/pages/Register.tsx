@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
-import { saveUser } from '../utils/userStore';
-import { runFullMigration } from '../utils/supabaseMigration';
 import { supabase } from '../utils/supabaseClient';
 
 export function Register() {
@@ -32,82 +30,60 @@ export function Register() {
         return;
       }
 
-      console.log('🔄 REGISTER: Attempting sign up with email:', email.trim());
-
-      // ✅ Daftarkan ke Supabase Auth dulu
+      // 1. Daftarkan ke Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
-          data: { nama: nama.trim() || 'Pengguna' }, // simpan nama di metadata
+          data: { nama: nama.trim() || 'Pengguna' },
         },
       });
 
       if (signUpError) {
-        console.error('❌ REGISTER: Sign up error:', signUpError.message);
         setError(signUpError.message);
         setLoading(false);
         return;
       }
 
       if (!data?.user) {
-        console.error('❌ REGISTER: No user returned from sign up');
-        setError('Gagal membuat akun: User data tidak ditemukan.');
+        setError('Gagal membuat akun. Silakan coba lagi.');
         setLoading(false);
         return;
       }
 
-      console.log('✅ REGISTER: User created:', data.user.email, 'ID:', data.user.id);
-
-      let signedInUser = data.user;
+      // 2. Kalau tidak ada session, login manual
       if (!data.session) {
-        console.log('🔄 REGISTER: No session returned, attempting sign in after sign up...');
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
           password: password,
         });
 
         if (signInError) {
-          console.warn('⚠️ REGISTER: Could not sign in automatically after sign up:', signInError.message);
           setError('Akun dibuat. Silakan verifikasi email lalu login.');
           setLoading(false);
           return;
         }
-
-        signedInUser = signInData.user ?? signedInUser;
       }
 
-      // ✅ Setelah auth berhasil, simpan profil ke tabel profiles
-      if (signedInUser) {
-        console.log('✅ REGISTER: Saving profile to database...');
-        await saveUser({
-          nama:  nama.trim() || 'Pengguna',
-          email: email.trim().toLowerCase(),
-        });
-        console.log('✅ REGISTER: Profile saved');
-      }
-
-      console.log('✅ REGISTER: Running migration...');
-      await runFullMigration();
-      
-      console.log('✅ REGISTER: Success! Navigating to dashboard...');
+      // 3. Langsung ke dashboard
+      // Profile sudah dibuat otomatis oleh trigger Supabase
       setLoading(false);
       navigate('/dashboard');
+
     } catch (err) {
-      console.error('❌ REGISTER: Unexpected error:', err);
-      setError('Terjadi kesalahan saat membuat akun. Silakan coba lagi.');
+      console.error('Register error:', err);
+      setError('Terjadi kesalahan. Silakan coba lagi.');
       setLoading(false);
     }
   };
 
-  // ✅ Google register
   const handleGoogleRegister = async () => {
     const { error: googleError } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: window.location.origin, // ← ganti jadi ini
-  },
-});
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
     if (googleError) setError('Gagal login dengan Google. Silakan coba lagi.');
   };
 
@@ -189,7 +165,6 @@ export function Register() {
             <div className="flex-1 h-px bg-gray-300"></div>
           </div>
 
-          {/* ✅ onClick sudah ditambahkan */}
           <button
             type="button"
             onClick={handleGoogleRegister}
