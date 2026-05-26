@@ -9,7 +9,16 @@ import { InputKegiatan } from './pages/InputKegiatan';
 import { Notifikasi } from './pages/Notifikasi';
 import { DashboardAnalitik } from './pages/DashboardAnalitik';
 import { Profil } from './pages/Profil';
-import { clearUser } from './utils/userStore';
+import { supabase } from './utils/supabaseClient';
+
+// Satpam pelindung halaman dashboard (Pure Supabase Auth)
+const protectedLoader = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return redirect('/login');
+  }
+  return null;
+};
 
 export const router = createBrowserRouter([
   {
@@ -19,7 +28,7 @@ export const router = createBrowserRouter([
       {
         path: 'logout',
         loader: async () => {
-          await clearUser();
+          await supabase.auth.signOut();
           return redirect('/login');
         },
       },
@@ -34,10 +43,11 @@ export const router = createBrowserRouter([
       {
         path: '/',
         Component: Layout, // Pembungkus utama navbar kiri
+        loader: protectedLoader, // Menjaga seluruh halaman di dalam layout ini
         children: [
           { path: 'dashboard', Component: Dashboard },
           { path: 'daftar-kegiatan', Component: DaftarKegiatan },
-          { path: 'input-kegiatan', Component: InputKegiatan }, // Terpasang rapi di dalam Layout sidebar!
+          { path: 'input-kegiatan', Component: InputKegiatan },
           { path: 'notifikasi', Component: Notifikasi },
           { path: 'dashboard-analitik', Component: DashboardAnalitik },
           { path: 'profil', Component: Profil },
