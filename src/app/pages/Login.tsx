@@ -74,8 +74,10 @@ export function Login() {
       );
     }
 
-    // LANGSUNG KE DASHBOARD
-    navigate('/dashboard');
+    // LANGSUNG KE DASHBOARD (Gunakan window.location untuk bypass state stuck)
+    setLoading(false);
+    window.location.href = '/dashboard';
+    return;
 
   } catch (err) {
     console.error("LOGIN ERROR:", err);
