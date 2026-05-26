@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { supabase } from './utils/supabaseClient';
-import { getUser } from './utils/userStore';
 
 export default function App() {
   useEffect(() => {
@@ -27,51 +26,29 @@ export default function App() {
             'ID:',
             session.user.id
           );
-
-          // Ambil user dari store/database
-          const userProfile = await getUser(session.user.id);
-
-          console.log(
-            '✅ User profile loaded:',
-            userProfile
-          );
         } else {
-          console.log(
-            '⚠️ No active session on app startup'
-          );
+          console.log('⚠️ No active session on app startup');
         }
       } catch (err) {
-        console.error(
-          '❌ restoreSession error:',
-          err
-        );
+        console.error('❌ restoreSession error:', err);
       }
     };
 
     restoreSession();
 
-    // Listener auth
+    // Listener auth - Langsung responsif tanpa blocked fungsi lain
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 AUTH EVENT:', event);
-        console.log('🔄 SESSION:', session);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 AUTH EVENT:', event);
+      console.log('🔄 SESSION:', session);
 
-        if (session?.user) {
-          console.log(
-            '✅ Auth state changed - user logged in:',
-            session.user.email
-          );
-
-          await getUser(session.user.id);
-        } else {
-          console.log(
-            '✅ Auth state changed to signed out or no session'
-          );
-        }
+      if (session?.user) {
+        console.log('✅ Auth state changed - user logged in:', session.user.email);
+      } else {
+        console.log('✅ Auth state changed to signed out or no session');
       }
-    );
+    });
 
     return () => {
       subscription.unsubscribe();
