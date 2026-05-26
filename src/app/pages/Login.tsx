@@ -50,24 +50,7 @@ export function Login() {
       return;
     }
 
-    // BUAT PROFILE JIKA BELUM ADA
-    try {
-      const profilUser = await getUser(data.user.id);
-
-      if (!profilUser) {
-        const namaDefault =
-          data.user.user_metadata?.nama ||
-          data.user.user_metadata?.full_name ||
-          data.user.email?.split('@')[0] ||
-          'User';
-
-        await saveUser({
-          id: data.user.id,
-          nama: namaDefault,
-          email: data.user.email || '',
-        });
-      }
-    } catch (profileError) {
+    catch (profileError) {
       console.error(
         "PROFILE ERROR:",
         profileError
