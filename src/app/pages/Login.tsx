@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { supabase } from '../utils/supabaseClient';
-import { getUser, saveUser } from '../utils/userStore';
 
 const logoKeSampingKuning = new URL('../../imports/logo_ke_samping_kuning.png', import.meta.url).href;
 
@@ -13,65 +12,50 @@ export function Login() {
   const [loading,    setLoading]    = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  try {
-    const email = identifier.trim().toLowerCase();
+    try {
+      const email = identifier.trim().toLowerCase();
 
-    if (!email || !password) {
-      setError('Email dan Password harus diisi.');
-      setLoading(false);
-      return;
-    }
+      if (!email || !password) {
+        setError('Email dan Password harus diisi.');
+        setLoading(false);
+        return;
+      }
 
-    // LOGIN AUTH
-    const { data, error: authError } =
-      await supabase.auth.signInWithPassword({
+      // 1. LOGIN AUTH KE SUPABASE
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-    if (authError) {
-      console.error("AUTH ERROR:", authError);
+      if (authError) {
+        console.error("AUTH ERROR:", authError);
+        setError('Email atau password salah. Silakan coba lagi.');
+        setLoading(false);
+        return;
+      }
 
-      setError(
-        'Email atau password salah. Silakan coba lagi.'
-      );
+      if (!data?.user) {
+        setError('Gagal login. Silakan coba lagi.');
+        setLoading(false);
+        return;
+      }
 
+      // 2. LANGSUNG LEMPAR KE DASHBOARD (AMAN & ANTI STUCK)
       setLoading(false);
+      window.location.href = '/dashboard';
       return;
-    }
 
-    if (!data?.user) {
-      setError('Gagal login. Silakan coba lagi.');
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+      setError('Terjadi kesalahan saat login. Silakan coba lagi.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    catch (profileError) {
-      console.error(
-        "PROFILE ERROR:",
-        profileError
-      );
-    }
-
-    // LANGSUNG KE DASHBOARD (Gunakan window.location untuk bypass state stuck)
-    setLoading(false);
-    window.location.href = '/dashboard';
-    return;
-
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
-
-    setError(
-      'Terjadi kesalahan saat login. Silakan coba lagi.'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleGoogleLogin = async () => {
     const { error: googleError } = await supabase.auth.signInWithOAuth({
