@@ -17,7 +17,7 @@ interface Kegiatan {
   created_at?: string;
 }
 
-/* ── style maps (Mendukung Huruf Kapital & Kecil dari DB) ── */
+/* ── style maps ── */
 const priorityStyle: Record<string, { bg: string; color: string }> = {
   Tinggi: { bg: '#FFDEDE', color: '#D32F2F' },
   Sedang: { bg: '#FFF3CD', color: '#B8860B' },
@@ -35,7 +35,6 @@ const statusStyle: Record<string, { bg: string; color: string }> = {
 const FILTER_COLS = ['Semua', 'Tinggi', 'Sedang', 'Rendah'];
 const SORT_OPTIONS = ['Terbaru', 'Prioritas Tertinggi', 'Deadline Terdekat'];
 
-// Helper untuk format tanggal indonesia lokalan
 function formatTanggal(dateString: string) {
   if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('id-ID', {
@@ -67,14 +66,14 @@ export function DaftarKegiatan() {
         return;
       }
 
+      // ⚠️ PERBAIKAN UTAMA: Mengubah nama tabel dari 'kegiatan' menjadi 'kegiatans' sesuai database
       const { data, error } = await supabase
-        .from('kegiatan')
+        .from('kegiatans')
         .select('*')
         .eq('user_id', session.user.id);
 
       if (error) throw error;
       
-      // ✅ PERBAIKAN: Mapping nama_kegiatan (snake_case) dari database ke namaKegiatan (camelCase)
       const normalizedData = (data || []).map((item: any) => ({
         id: item.id,
         namaKegiatan: item.nama_kegiatan || item.namaKegiatan || '', 
@@ -89,8 +88,9 @@ export function DaftarKegiatan() {
       }));
 
       setKegiatan(normalizedData);
-    } catch (err) {
-      console.error('❌ Error fetching dari Supabase:', err);
+    } catch (err: any) {
+      // Menampilkan pesan error secara mendetail di konsol
+      console.error('❌ Error fetching dari Supabase:', err.message || err);
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export function DaftarKegiatan() {
     reload();
   }, []);
 
-  /* ── FILTER + SORT LOGIC (FIXED CASE-SENSITIVE) ── */
+  /* ── FILTER + SORT LOGIC ── */
   const filtered = kegiatan
     .filter((k) => {
       const nama = k.namaKegiatan ? k.namaKegiatan.toLowerCase() : '';
@@ -119,7 +119,6 @@ export function DaftarKegiatan() {
         if (!b.tanggal) return -1;
         return new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime();
       }
-      // Terbaru berdasarkan id/created_at database
       const dateA = new Date(a.created_at || a.tanggal || 0).getTime();
       const dateB = new Date(b.created_at || b.tanggal || 0).getTime();
       return dateB - dateA;
@@ -130,7 +129,7 @@ export function DaftarKegiatan() {
     const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
     try {
       const { error } = await supabase
-        .from('kegiatan')
+        .from('kegiatans') // Menyelaraskan nama tabel menjadi 'kegiatans'
         .update({ status: nextStatus })
         .eq('id', id);
 
@@ -146,7 +145,7 @@ export function DaftarKegiatan() {
     if (confirm('Hapus kegiatan ini dari database Target.in?')) {
       try {
         const { error } = await supabase
-          .from('kegiatan')
+          .from('kegiatans') // Menyelaraskan nama tabel menjadi 'kegiatans'
           .delete()
           .eq('id', id);
 
