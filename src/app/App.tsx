@@ -1,4 +1,4 @@
-import { createBrowserRouter, redirect } from 'react-router';
+import { createBrowserRouter, redirect, RouterProvider } from 'react-router'; // Tambah RouterProvider di sini
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -20,7 +20,8 @@ const protectedLoader = async () => {
   return null;
 };
 
-export const router = createBrowserRouter([
+// Ubah nama variabelnya agar tidak bentrok dengan nama komponen App
+const routerConfig = createBrowserRouter([
   {
     path: '/',
     children: [
@@ -41,13 +42,13 @@ export const router = createBrowserRouter([
         Component: Register,
       },
       {
-        path: '/',
+        path: '', // Diubah jadi string kosong agar tidak tabrakan dengan '/' utama
         Component: Layout, // Pembungkus utama navbar kiri
         loader: protectedLoader, // Menjaga seluruh halaman di dalam layout ini
         children: [
           { path: 'dashboard', Component: Dashboard },
-          { path: 'daftar-kegiatan', Component: DaftarKegiatan }, // ✅ BENER (Membuka list tabel)
-          { path: 'input-kegiatan', Component: InputKegiatan },   // ✅ BENER (Membuka form input)
+          { path: 'daftar-kegiatan', Component: DaftarKegiatan }, 
+          { path: 'input-kegiatan', Component: InputKegiatan },   
           { path: 'notifikasi', Component: Notifikasi },
           { path: 'dashboard-analitik', Component: DashboardAnalitik },
           { path: 'profil', Component: Profil },
@@ -56,3 +57,8 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
+/* ─── KOMPONEN UTAMA YANG TADI HILANG ─── */
+export function App() {
+  return <RouterProvider router={routerConfig} />;
+}
