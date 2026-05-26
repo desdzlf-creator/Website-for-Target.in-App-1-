@@ -1,350 +1,339 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Calendar, CheckCircle, AlertCircle } from 'lucide-react';
-import { useUserStore } from '../utils/userStore'; // Mengimpor cache user proyek lu
-import {
-  addKegiatan,
-  hitungPrioritas,
-  hitungSisaHari,
-  skorToPrioritas,
-} from '../utils/kegiatanStore';
+import { Search, ChevronDown, Plus, Trash2, ClipboardList, CheckCircle, Clock } from 'lucide-react';
+import { supabase } from '../utils/supabaseClient'; // Menggunakan client supabase kamu
 
-const KATEGORI_OPTIONS = ['Tugas', 'Ujian', 'Organisasi', 'Pribadi'] as const;
-
-const KESULITAN_LABELS: Record<number, string> = {
-  1: 'Sangat Mudah',
-  2: 'Mudah',
-  3: 'Sedang',
-  4: 'Sulit',
-  5: 'Sangat Sulit',
-};
-
-const prioritasColor: Record<string, { bg: string; text: string; border: string }> = {
-  Tinggi: { bg: '#FFF0F0', text: '#D32F2F', border: '#FFCDD2' },
-  Sedang: { bg: '#FFFBE6', text: '#B8860B', border: '#FFE082' },
-  Rendah: { bg: '#F0FDF4', text: '#1E8E6C', border: '#BBF7D0' },
-};
-
-function SelectIcon() {
-  return (
-    <svg
-      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-      width="14" height="14" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2"
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
+/* ── Interface Data Kegiatan ── */
+interface Kegiatan {
+  id: string;
+  namaKegiatan: string;
+  jenis: 'Kelompok' | 'Individu';
+  kategori: 'Tugas' | 'Ujian' | 'Organisasi' | 'Pribadi';
+  tingkatKesulitan: number;
+  tanggal: string;
+  prioritas: 'Tinggi' | 'Sedang' | 'Rendah';
+  status: 'Belum Selesai' | 'Sudah Selesai';
+  skor: number;
+  created_at?: string;
 }
 
-export function InputKegiatan() {
-  const navigate = useNavigate();
-  const { user, getUser } = useUserStore(); // Membaca session login user
+/* ── style maps ── */
+const priorityStyle: Record<string, { bg: string; color: string }> = {
+  Tinggi: { bg: '#FFDEDE', color: '#D32F2F' },
+  Sedang: { bg: '#FFF3CD', color: '#B8860B' },
+  Rendah: { bg: '#D4F4E8', color: '#1E8E6C' },
+};
 
-  const [form, setForm] = useState({
-    namaKegiatan:     '',
-    jenis:            '' as 'Kelompok' | 'Individu' | '',
-    kategori:         '' as 'Tugas' | 'Ujian' | 'Organisasi' | 'Pribadi' | '',
-    tingkatKesulitan: 0,
-    tanggal:          '',
-    terlambat:        false,
+const statusStyle: Record<string, { bg: string; color: string }> = {
+  'Belum Selesai': { bg: '#FFDEDE', color: '#D32F2F' },
+  'Sudah Selesai': { bg: '#D4F4E8', color: '#1E8E6C' },
+};
+
+const FILTER_COLS = ['Semua', 'Tinggi', 'Sedang', 'Rendah'];
+const SORT_OPTIONS = ['Terbaru', 'Prioritas Tertinggi', 'Deadline Terdekat'];
+
+// Helper untuk format tanggal indonesia lokalan
+function formatTanggal(dateString: string) {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   });
+}
 
-  const [saved, setSaved] = useState(false);
-  const [error, setError]  = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
+  const navigate = useNavigate();
 
-  // Load ulang data user saat komponen pertama kali dibuka
+  const [kegiatan, setKegiatan] = useState<Kegiatan[]>([]);
+  const [loading, setLoading] = useState(true); // State loading biar user tahu data sedang diambil
+  const [search, setSearch]     = useState('');
+  const [filterP, setFilterP]   = useState('Semua');
+  const [sortBy, setSortBy]     = useState('Terbaru');
+  const [showFilter, setShowFilter] = useState(false);
+  const [showSort, setShowSort]     = useState(false);
+
+  /* ── 2. AMBIL DATA REAL-TIME DARI SUPABASE ── */
+  const reload = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        navigate('/login');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('kegiatan')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+      
+      // Menyesuaikan status jika di database bertuliskan "Belum Selesai" / "Selesai"
+      const normalizedData = (data || []).map((item: any) => ({
+        ...item,
+        status: item.status === 'Selesai' ? 'Sudah Selesai' : item.status
+      }));
+
+      setKegiatan(normalizedData);
+    } catch (err) {
+      console.error('❌ Error fetching dari Supabase:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    getUser();
-  }, [getUser]);
+    reload();
+  }, []);
 
-  /* ── preview skor real-time ── */
-  const previewSkor =
-    form.jenis && form.kategori && form.tingkatKesulitan > 0 && form.tanggal
-      ? hitungPrioritas({
-          kelompok:         form.jenis === 'Kelompok',
-          kategori:         form.kategori,
-          sisaHari:         hitungSisaHari(form.tanggal),
-          tingkatKesulitan: form.tingkatKesulitan,
-          terlambat:        form.terlambat,
-        })
-      : null;
+  /* ── FILTER + SORT LOGIC ── */
+  const filtered = kegiatan
+    .filter((k) => {
+      const matchSearch = k.namaKegiatan.toLowerCase().includes(search.toLowerCase());
+      const matchFilter = filterP === 'Semua' || k.prioritas === filterP;
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'Prioritas Tertinggi') return b.skor - a.skor;
+      if (sortBy === 'Deadline Terdekat')
+        return new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime();
+      // Terbaru berdasarkan id/created_at database
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
 
-  const previewPrioritas = previewSkor !== null ? skorToPrioritas(previewSkor) : null;
+  /* ── 3. UPDATE STATUS DI SUPABASE ── */
+  const handleStatus = async (id: string, current: string) => {
+    const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
+    try {
+      const { error } = await supabase
+        .from('kegiatan')
+        .update({ status: nextStatus })
+        .eq('id', id);
 
-  const set = (field: string, value: string | number | boolean) =>
-    setForm((p) => ({ ...p, [field]: value }));
-
-  /* ── submit ── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    if (!form.namaKegiatan || !form.jenis || !form.kategori || !form.tingkatKesulitan || !form.tanggal) {
-      setError('Harap lengkapi semua field yang wajib diisi.');
-      return;
+      if (error) throw error;
+      reload(); // Refresh data setelah sukses ter-update
+    } catch (err) {
+      console.error('❌ Gagal update status:', err);
     }
+  };
 
-    // Proteksi utama: Jika ID user dari session kosong, suruh user relogin
-    if (!user?.id) {
-      console.error('❌ INPUTKEGIATAN: User ID missing. Current user:', user);
-      setError('Sesi login Anda tidak valid atau telah berakhir. Silakan log out lalu log in kembali.');
-      return;
-    }
+  /* ── 4. HAPUS DATA DI SUPABASE ── */
+  const handleDelete = async (id: string) => {
+    if (confirm('Hapus kegiatan ini dari database Target.in?')) {
+      try {
+        const { error } = await supabase
+          .from('kegiatan')
+          .delete()
+          .eq('id', id);
 
-    console.log('🔄 INPUTKEGIATAN: Submitting form for user:', user.id);
-
-    setIsSubmitting(true);
-    setError('');
-
-    const sisaHari  = hitungSisaHari(form.tanggal);
-    const skor      = hitungPrioritas({
-      kelompok:         form.jenis === 'Kelompok',
-      kategori:         form.kategori,
-      sisaHari,
-      tingkatKesulitan: form.tingkatKesulitan,
-      terlambat:        form.terlambat,
-    });
-    const prioritas = skorToPrioritas(skor);
-
-    console.log('🔄 INPUTKEGIATAN: Creating kegiatan:', {
-      namaKegiatan: form.namaKegiatan,
-      skor,
-      prioritas,
-      user_id: user.id,
-    });
-
-    const result = await addKegiatan({
-      namaKegiatan:     form.namaKegiatan,
-      jenis:            form.jenis as 'Kelompok' | 'Individu',
-      kategori:         form.kategori as 'Tugas' | 'Ujian' | 'Organisasi' | 'Pribadi',
-      tingkatKesulitan: form.tingkatKesulitan,
-      tanggal:          form.tanggal,
-      terlambat:        form.terlambat,
-      skor,
-      prioritas,
-      status: 'Belum Selesai',
-      user_id: user.id, // Kita kirim ID user yang sah ke store
-    });
-
-    if (result) {
-      console.log('✅ INPUTKEGIATAN: Kegiatan created successfully:', result);
-      setSaved(true);
-      setError('');
-      setTimeout(() => navigate('/daftar-kegiatan'), 1200);
-    } else {
-      console.error('❌ INPUTKEGIATAN: Failed to create kegiatan');
-      setIsSubmitting(false);
-      setError('Gagal menyimpan kegiatan ke database Supabase. Periksa koneksi internet Anda.');
+        if (error) throw error;
+        reload(); // Refresh data setelah sukses dihapus
+      } catch (err) {
+        console.error('❌ Gagal menghapus kegiatan:', err);
+      }
     }
   };
 
   return (
-    <div className="w-full max-w-3xl">
+    <div className="min-h-full flex flex-col w-full max-w-6xl">
+
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Tambah Kegiatan Baru</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          Isi detail kegiatan yang ingin kamu tambahkan hari ini!
-        </p>
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold text-gray-800">Semua Kegiatan</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Lihat dan kelola seluruh tugas dan skala prioritasmu.</p>
       </div>
 
-      {/* Success banner */}
-      {saved && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 mb-5 text-sm">
-          <CheckCircle size={16} />
-          Kegiatan berhasil disimpan! Mengarahkan…
+      {/* Search & Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cari Kegiatan..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#FFBF00] focus:ring-1 focus:ring-[#FFBF00] bg-white text-gray-700"
+          />
         </div>
-      )}
 
-      {/* Error banner */}
-      {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-5 text-sm">
-          <AlertCircle size={16} />
-          {error}
-        </div>
-      )}
-
-      {/* Form Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-8 w-full">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-
-          {/* Nama Kegiatan */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Nama Kegiatan <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Contoh: Tugas Algoritma Bab 3"
-              value={form.namaKegiatan}
-              onChange={(e) => set('namaKegiatan', e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#FFBF00] focus:ring-1 focus:ring-[#FFBF00] text-gray-800 placeholder:text-gray-300"
-            />
-          </div>
-
-          {/* Jenis & Kategori */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Jenis */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Jenis <span className="text-red-400">*</span>
-              </label>
-              <div className="flex gap-3">
-                {(['Kelompok', 'Individu'] as const).map((j) => (
-                  <button
-                    key={j}
-                    type="button"
-                    onClick={() => set('jenis', j)}
-                    className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
-                    style={{
-                      borderColor:     form.jenis === j ? '#FFBF00' : '#E5E7EB',
-                      backgroundColor: form.jenis === j ? '#FFBF00' : 'white',
-                      color:           form.jenis === j ? 'white'   : '#6B7280',
-                    }}
-                  >
-                    {j}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Kategori */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Kategori <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  value={form.kategori}
-                  onChange={(e) => set('kategori', e.target.value)}
-                  className="w-full appearance-none border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#FFBF00] focus:ring-1 focus:ring-[#FFBF00] text-gray-700 bg-white pr-10"
-                >
-                  <option value="" disabled>Pilih kategori…</option>
-                  {KATEGORI_OPTIONS.map((k) => (
-                    <option key={k} value={k}>{k}</option>
-                  ))}
-                </select>
-                <SelectIcon />
-              </div>
-            </div>
-          </div>
-
-          {/* Tingkat Kesulitan */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Tingkat Kesulitan <span className="text-red-400">*</span>
-            </label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {[1, 2, 3, 4, 5].map((n) => (
+        {/* Filter Prioritas */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowFilter(!showFilter); setShowSort(false); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:border-[#FFBF00] transition-colors whitespace-nowrap"
+          >
+            <span className="text-gray-500">Filter:</span>
+            <span className="font-semibold text-gray-700">{filterP}</span>
+            <ChevronDown size={13} className="text-gray-400" />
+          </button>
+          {showFilter && (
+            <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-md z-10 min-w-[140px] overflow-hidden">
+              {FILTER_COLS.map((p) => (
                 <button
-                  key={n}
+                  key={p}
                   type="button"
-                  onClick={() => set('tingkatKesulitan', n)}
-                  className="w-10 h-10 rounded-full border-2 text-sm font-semibold transition-all shrink-0"
-                  style={{
-                    borderColor:     form.tingkatKesulitan === n ? '#FFBF00' : '#E5E7EB',
-                    backgroundColor: form.tingkatKesulitan === n ? '#FFBF00' : 'white',
-                    color:           form.tingkatKesulitan === n ? 'white'   : '#9CA3AF',
-                  }}
+                  onClick={() => { setFilterP(p); setShowFilter(false); }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${filterP === p ? 'text-[#FFBF00] font-semibold' : 'text-gray-700'}`}
                 >
-                  {n}
+                  {p}
                 </button>
               ))}
-              {form.tingkatKesulitan > 0 && (
-                <span className="text-xs text-gray-400 ml-1">
-                  — {KESULITAN_LABELS[form.tingkatKesulitan]}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Deadline */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Deadline <span className="text-red-400">*</span>
-            </label>
-            <div className="relative max-w-xs">
-              <input
-                type="date"
-                value={form.tanggal}
-                onChange={(e) => set('tanggal', e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#FFBF00] focus:ring-1 focus:ring-[#FFBF00] text-gray-700 pr-10"
-              />
-              <Calendar size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Terlambat toggle */}
-          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-700">Sudah Terlambat?</p>
-              <p className="text-xs text-gray-400 mt-0.5">Tandai jika pengerjaan sudah melewati batas wajar</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => set('terlambat', !form.terlambat)}
-              className="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none shrink-0"
-              style={{ backgroundColor: form.terlambat ? '#FFBF00' : '#E5E7EB' }}
-            >
-              <span
-                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                style={{ transform: form.terlambat ? 'translateX(20px)' : 'translateX(0)' }}
-              />
-            </button>
-          </div>
-
-          {/* Priority Preview */}
-          {previewPrioritas && (
-            <div
-              className="rounded-xl px-4 py-3 border flex items-center justify-between"
-              style={{
-                backgroundColor: prioritasColor[previewPrioritas].bg,
-                borderColor:     prioritasColor[previewPrioritas].border,
-              }}
-            >
-              <div>
-                <p className="text-xs font-semibold" style={{ color: prioritasColor[previewPrioritas].text }}>
-                  Estimasi Prioritas
-                </p>
-                <p className="text-xl font-bold mt-0.5" style={{ color: prioritasColor[previewPrioritas].text }}>
-                  {previewPrioritas}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-400">Skor</p>
-                <p className="text-2xl font-bold" style={{ color: prioritasColor[previewPrioritas].text }}>
-                  {previewSkor}
-                </p>
-              </div>
             </div>
           )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col-reverse md:flex-row justify-end gap-3 pt-2">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => navigate('/daftar-kegiatan')}
-              className="px-6 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 text-sm font-semibold text-white rounded-xl hover:bg-[#e6ac00] transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#FFBF00' }}
-            >
-              {isSubmitting ? 'Menyimpan…' : 'Simpan Kegiatan'}
-            </button>
-          </div>
-        </form>
+        {/* Urutkan */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowSort(!showSort); setShowFilter(false); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:border-[#FFBF00] transition-colors whitespace-nowrap"
+          >
+            <span className="text-gray-500">Urut:</span>
+            <span className="font-semibold text-gray-700">{sortBy}</span>
+            <ChevronDown size={13} className="text-gray-400" />
+          </button>
+          {showSort && (
+            <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-md z-10 min-w-[190px] overflow-hidden">
+              {SORT_OPTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setSortBy(s); setShowSort(false); }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${sortBy === s ? 'text-[#FFBF00] font-semibold' : 'text-gray-700'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tambah Button */}
+        <div className="md:ml-auto">
+          <button
+            onClick={() => navigate('/input-kegiatan')}
+            className="flex items-center gap-2 bg-[#FFBF00] text-white font-semibold px-5 py-2 rounded-xl hover:bg-[#e6ac00] transition-colors shadow-sm text-sm whitespace-nowrap"
+          >
+            <Plus size={16} />
+            Tambah Kegiatan
+          </button>
+        </div>
       </div>
+
+      {/* ── Table / Cards Content ── */}
+      {loading ? (
+        <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center py-16 text-gray-400 text-sm">
+          Sedang mengambil data dari Supabase...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center py-16 gap-3">
+          <ClipboardList size={40} className="text-gray-200" />
+          <p className="text-gray-400 text-sm">
+            {search || filterP !== 'Semua'
+              ? 'Tidak ada kegiatan yang cocok dengan filter.'
+              : 'Belum ada kegiatan. Yuk tambahkan!'}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop Table (md+) */}
+          <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-1">
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] bg-gray-50 border-b border-gray-100 px-5 py-3">
+              {['Kegiatan', 'Kategori', 'Deadline', 'Prioritas', 'Status', ''].map((col, i) => (
+                <span key={i} className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {col}
+                </span>
+              ))}
+            </div>
+
+            {filtered.map((item) => (
+              <div
+                key={item.id}
+                className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] items-center px-5 py-3.5 border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.namaKegiatan}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{item.jenis}</p>
+                </div>
+                <span className="text-sm text-gray-500">{item.kategori}</span>
+                <span className="text-sm text-gray-500">{formatTanggal(item.tanggal)}</span>
+                <span>
+                  <span
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={priorityStyle[item.prioritas]}
+                  >
+                    {item.prioritas} ({item.skor})
+                  </span>
+                </span>
+                <span>
+                  <button
+                    onClick={() => handleStatus(item.id, item.status)}
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1"
+                    style={statusStyle[item.status]}
+                    title="Klik untuk ubah status"
+                  >
+                    {item.status === 'Sudah Selesai' ? <CheckCircle size={12} /> : <Clock size={12} />}
+                    {item.status}
+                  </button>
+                </span>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="ml-2 p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
+                  title="Hapus kegiatan"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile Cards (< md) */}
+          <div className="flex md:hidden flex-col gap-3">
+            {filtered.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4"
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{item.namaKegiatan}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{item.jenis} · {item.kategori}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={priorityStyle[item.prioritas]}
+                  >
+                    {item.prioritas} ({item.skor})
+                  </span>
+                  <button
+                    onClick={() => handleStatus(item.id, item.status)}
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 flex items-center gap-1"
+                    style={statusStyle[item.status]}
+                  >
+                    {item.status === 'Sudah Selesai' ? <CheckCircle size={11} /> : <Clock size={11} />}
+                    {item.status}
+                  </button>
+                  <span className="text-xs text-gray-400 ml-auto">{formatTanggal(item.tanggal)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
-
-export function InputKegiatan() {
-  // ... isi form input kegiatan
