@@ -13,55 +13,80 @@ export function Login() {
   const [loading,    setLoading]    = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
 
-    try {
-      const email = identifier.trim().toLowerCase();
-      if (!email || !password) {
-        setError('Email dan Password harus diisi.');
-        setLoading(false);
-        return;
-      }
+  try {
+    const email = identifier.trim().toLowerCase();
 
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+    if (!email || !password) {
+      setError('Email dan Password harus diisi.');
+      setLoading(false);
+      return;
+    }
+
+    // LOGIN AUTH
+    const { data, error: authError } =
+      await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError) {
-        setError('Email atau password salah. Silakan coba lagi.');
-        setLoading(false);
-        return;
-      }
+    if (authError) {
+      console.error("AUTH ERROR:", authError);
 
-      if (!data?.user) {
-        setError('Gagal login. Silakan coba lagi.');
-        setLoading(false);
-        return;
-      }
+      setError(
+        'Email atau password salah. Silakan coba lagi.'
+      );
 
-      // Buat profile kalau belum ada
-      const profilUser = await getUser();
+      setLoading(false);
+      return;
+    }
+
+    if (!data?.user) {
+      setError('Gagal login. Silakan coba lagi.');
+      setLoading(false);
+      return;
+    }
+
+    // BUAT PROFILE JIKA BELUM ADA
+    try {
+      const profilUser = await getUser(data.user.id);
+
       if (!profilUser) {
-        const namaDefault = data.user.user_metadata?.nama 
-          || data.user.user_metadata?.full_name 
-          || data.user.email?.split('@')[0] 
-          || 'User';
+        const namaDefault =
+          data.user.user_metadata?.nama ||
+          data.user.user_metadata?.full_name ||
+          data.user.email?.split('@')[0] ||
+          'User';
+
         await saveUser({
+          id: data.user.id,
           nama: namaDefault,
           email: data.user.email || '',
         });
       }
-
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Terjadi kesalahan saat login. Silakan coba lagi.');
-    } finally {
-      setLoading(false);
+    } catch (profileError) {
+      console.error(
+        "PROFILE ERROR:",
+        profileError
+      );
     }
-  };
+
+    // LANGSUNG KE DASHBOARD
+    navigate('/dashboard');
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+
+    setError(
+      'Terjadi kesalahan saat login. Silakan coba lagi.'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGoogleLogin = async () => {
     const { error: googleError } = await supabase.auth.signInWithOAuth({
