@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Search, ChevronDown, Plus, Trash2, ClipboardList, CheckCircle, Clock } from 'lucide-react';
-import { supabase } from '../utils/supabaseClient'; // Menggunakan client supabase kamu
+import { supabase } from '../utils/supabaseClient';
 
 /* ── Interface Data Kegiatan ── */
 interface Kegiatan {
@@ -17,11 +17,14 @@ interface Kegiatan {
   created_at?: string;
 }
 
-/* ── style maps ── */
+/* ── style maps (Mendukung Huruf Kapital & Kecil dari DB) ── */
 const priorityStyle: Record<string, { bg: string; color: string }> = {
   Tinggi: { bg: '#FFDEDE', color: '#D32F2F' },
   Sedang: { bg: '#FFF3CD', color: '#B8860B' },
   Rendah: { bg: '#D4F4E8', color: '#1E8E6C' },
+  tinggi: { bg: '#FFDEDE', color: '#D32F2F' },
+  sedang: { bg: '#FFF3CD', color: '#B8860B' },
+  rendah: { bg: '#D4F4E8', color: '#1E8E6C' },
 };
 
 const statusStyle: Record<string, { bg: string; color: string }> = {
@@ -42,18 +45,18 @@ function formatTanggal(dateString: string) {
   });
 }
 
-export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
+export function DaftarKegiatan() {
   const navigate = useNavigate();
 
   const [kegiatan, setKegiatan] = useState<Kegiatan[]>([]);
-  const [loading, setLoading] = useState(true); // State loading biar user tahu data sedang diambil
+  const [loading, setLoading] = useState(true);
   const [search, setSearch]     = useState('');
   const [filterP, setFilterP]   = useState('Semua');
   const [sortBy, setSortBy]     = useState('Terbaru');
   const [showFilter, setShowFilter] = useState(false);
   const [showSort, setShowSort]     = useState(false);
 
-  /* ── 2. AMBIL DATA REAL-TIME DARI SUPABASE ── */
+  /* ── AMBIL DATA REAL-TIME DARI SUPABASE ── */
   const reload = async () => {
     try {
       setLoading(true);
@@ -71,10 +74,18 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
 
       if (error) throw error;
       
-      // Menyesuaikan status jika di database bertuliskan "Belum Selesai" / "Selesai"
+      // ✅ PERBAIKAN: Mapping nama_kegiatan (snake_case) dari database ke namaKegiatan (camelCase)
       const normalizedData = (data || []).map((item: any) => ({
-        ...item,
-        status: item.status === 'Selesai' ? 'Sudah Selesai' : item.status
+        id: item.id,
+        namaKegiatan: item.nama_kegiatan || item.namaKegiatan || '', 
+        jenis: item.jenis || 'Individu',
+        kategori: item.kategori || 'Tugas',
+        tingkatKesulitan: item.tingkat_kesulitan || item.tingkatKesulitan || 0,
+        tanggal: item.tanggal || '',
+        prioritas: item.prioritas || 'Rendah',
+        status: item.status === 'Selesai' || item.status === 'Sudah Selesai' ? 'Sudah Selesai' : 'Belum Selesai',
+        skor: item.skor || 0,
+        created_at: item.created_at
       }));
 
       setKegiatan(normalizedData);
@@ -89,22 +100,32 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
     reload();
   }, []);
 
-  /* ── FILTER + SORT LOGIC ── */
+  /* ── FILTER + SORT LOGIC (FIXED CASE-SENSITIVE) ── */
   const filtered = kegiatan
     .filter((k) => {
-      const matchSearch = k.namaKegiatan.toLowerCase().includes(search.toLowerCase());
-      const matchFilter = filterP === 'Semua' || k.prioritas === filterP;
+      const nama = k.namaKegiatan ? k.namaKegiatan.toLowerCase() : '';
+      const matchSearch = nama.includes(search.toLowerCase());
+      
+      const prioritasData = k.prioritas ? k.prioritas.toLowerCase() : '';
+      const prioritasFilter = filterP.toLowerCase();
+      const matchFilter = filterP === 'Semua' || prioritasData === prioritasFilter;
+      
       return matchSearch && matchFilter;
     })
     .sort((a, b) => {
       if (sortBy === 'Prioritas Tertinggi') return b.skor - a.skor;
-      if (sortBy === 'Deadline Terdekat')
+      if (sortBy === 'Deadline Terdekat') {
+        if (!a.tanggal) return 1;
+        if (!b.tanggal) return -1;
         return new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime();
+      }
       // Terbaru berdasarkan id/created_at database
-      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      const dateA = new Date(a.created_at || a.tanggal || 0).getTime();
+      const dateB = new Date(b.created_at || b.tanggal || 0).getTime();
+      return dateB - dateA;
     });
 
-  /* ── 3. UPDATE STATUS DI SUPABASE ── */
+  /* ── UPDATE STATUS DI SUPABASE ── */
   const handleStatus = async (id: string, current: string) => {
     const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
     try {
@@ -114,13 +135,13 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
         .eq('id', id);
 
       if (error) throw error;
-      reload(); // Refresh data setelah sukses ter-update
+      reload();
     } catch (err) {
       console.error('❌ Gagal update status:', err);
     }
   };
 
-  /* ── 4. HAPUS DATA DI SUPABASE ── */
+  /* ── HAPUS DATA DI SUPABASE ── */
   const handleDelete = async (id: string) => {
     if (confirm('Hapus kegiatan ini dari database Target.in?')) {
       try {
@@ -130,7 +151,7 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
           .eq('id', id);
 
         if (error) throw error;
-        reload(); // Refresh data setelah sukses dihapus
+        reload();
       } catch (err) {
         console.error('❌ Gagal menghapus kegiatan:', err);
       }
@@ -265,7 +286,7 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
                 <span>
                   <span
                     className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                    style={priorityStyle[item.prioritas]}
+                    style={priorityStyle[item.prioritas] || { bg: '#E5E7EB', color: '#374151' }}
                   >
                     {item.prioritas} ({item.skor})
                   </span>
@@ -315,7 +336,7 @@ export function DaftarKegiatan() { // 1. SUDAH DIGANTI JADI DaftarKegiatan
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                    style={priorityStyle[item.prioritas]}
+                    style={priorityStyle[item.prioritas] || { bg: '#E5E7EB', color: '#374151' }}
                   >
                     {item.prioritas} ({item.skor})
                   </span>
