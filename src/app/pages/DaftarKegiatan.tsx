@@ -346,4 +346,5 @@ export function InputKegiatan() {
   );
 }
 
-export const DaftarKegiatan = InputKegiatan;
+export function InputKegiatan() {
+  // ... isi form input kegiatan
