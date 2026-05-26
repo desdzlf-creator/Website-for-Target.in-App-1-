@@ -51,8 +51,14 @@ export function Register() {
         return;
       }
 
-      // 2. Kalau tidak ada session, login manual
-      if (!data.session) {
+      // 2. Alur setelah berhasil daftar
+      if (data.session) {
+        // JIKA LANGSUNG LOGIN (Karena verifikasi email di Supabase sudah dimatikan)
+        setLoading(false);
+        window.location.href = '/dashboard'; // Alihkan halaman dengan aman
+        return;
+      } else {
+        // JIKA VERIFIKASI EMAIL MENYALA (Butuh login manual)
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
           password: password,
@@ -63,17 +69,18 @@ export function Register() {
           setLoading(false);
           return;
         }
+        
+        setLoading(false);
+        navigate('/dashboard');
       }
-
-      // 3. Langsung ke dashboard
-      // Profile sudah dibuat otomatis oleh trigger Supabase
-      setLoading(false);
-      navigate('/dashboard');
 
     } catch (err) {
       console.error('Register error:', err);
       setError('Terjadi kesalahan. Silakan coba lagi.');
       setLoading(false);
+    } finally {
+      // Ini adalah pengaman cadangan agar loading tombol PASTI mati
+      setLoading(false); 
     }
   };
 
