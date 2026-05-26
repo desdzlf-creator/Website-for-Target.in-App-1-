@@ -44,15 +44,16 @@ export function Login() {
         return;
       }
 
-      // 2. LANGSUNG LEMPAR KE DASHBOARD (AMAN & ANTI STUCK)
+      // 2. MATIKAN LOADING TERLEBIH DAHULU, BARU PINDAH HALAMAN
       setLoading(false);
-      window.location.href = '/dashboard';
+      
+      // Menggunakan navigate dengan replace true jauh lebih aman bagi siklus auth Supabase
+      navigate('/dashboard', { replace: true });
       return;
 
     } catch (err) {
       console.error("LOGIN ERROR:", err);
       setError('Terjadi kesalahan saat login. Silakan coba lagi.');
-    } finally {
       setLoading(false);
     }
   };
