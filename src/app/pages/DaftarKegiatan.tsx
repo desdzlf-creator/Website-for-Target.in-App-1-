@@ -287,7 +287,7 @@ export function DaftarKegiatan() {
                     className="text-xs font-semibold px-2.5 py-1 rounded-full"
                     style={priorityStyle[item.prioritas] || { bg: '#E5E7EB', color: '#374151' }}
                   >
-                    {item.prioritas} ({item.skor})
+                    {item.prioritas}
                   </span>
                 </span>
                 <span>
