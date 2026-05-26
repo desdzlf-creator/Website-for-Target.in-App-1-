@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { runFullMigration } from '../utils/supabaseMigration';
 import { supabase } from '../utils/supabaseClient';
 import { getUser, saveUser } from '../utils/userStore';
 
@@ -26,60 +25,38 @@ export function Login() {
         return;
       }
 
-      console.log('🔄 LOGIN: Attempting sign in with:', email);
-
-      // 1. Login ke Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
-        password: password,
+        password,
       });
 
       if (authError) {
-        console.error('❌ LOGIN AUTH ERROR:', authError.message);
-        console.error('❌ ERROR CODE:', authError.status);
-        setError(authError.message || 'Email atau password salah. Silakan coba lagi.');
+        setError('Email atau password salah. Silakan coba lagi.');
         setLoading(false);
         return;
       }
 
       if (!data?.user) {
-        console.error('❌ LOGIN: No user returned from auth');
-        setError('Gagal login: User data tidak ditemukan.');
+        setError('Gagal login. Silakan coba lagi.');
         setLoading(false);
         return;
       }
 
-      console.log('✅ LOGIN: Auth successful, user:', data.user.email, 'ID:', data.user.id);
-
-      // 2. Cek apakah profile di database sudah ada atau belum
-      if (data?.user) {
-        const profilUser = await getUser();
-        console.log('✅ LOGIN: Profile check result:', profilUser);
-
-        // JIKA BELUM ADA DI TABEL PROFILES, KITA KONEKKAN SEKARANG!
-        if (!profilUser) {
-          const namaDefault = data.user.user_metadata?.nama || data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User';
-          console.log('✅ LOGIN: Creating new profile with name:', namaDefault);
-          
-          // Pakai fungsi saveUser bawaan userStore lu buat masukin data ke tabel profiles
-          await saveUser({
-            nama: namaDefault,
-            email: data.user.email || '',
-          });
-          
-          // Ambil ulang biar cacheLoaded jadi true
-          const refreshedUser = await getUser();
-          console.log('✅ LOGIN: Profile created and loaded:', refreshedUser);
-        }
+      // Buat profile kalau belum ada
+      const profilUser = await getUser();
+      if (!profilUser) {
+        const namaDefault = data.user.user_metadata?.nama 
+          || data.user.user_metadata?.full_name 
+          || data.user.email?.split('@')[0] 
+          || 'User';
+        await saveUser({
+          nama: namaDefault,
+          email: data.user.email || '',
+        });
       }
 
-      console.log('✅ LOGIN: Running migration...');
-      await runFullMigration();
-      
-      console.log('✅ LOGIN: Success! Navigating to dashboard...');
       navigate('/dashboard');
     } catch (err) {
-      console.error('❌ LOGIN: Unexpected error:', err);
       setError('Terjadi kesalahan saat login. Silakan coba lagi.');
     } finally {
       setLoading(false);
@@ -90,7 +67,7 @@ export function Login() {
     const { error: googleError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     });
     if (googleError) setError('Gagal login dengan Google. Silakan coba lagi.');
