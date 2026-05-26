@@ -3,9 +3,13 @@ import { Link, useLocation } from 'react-router';
 import { Home, Calendar, Bell, BarChart3, User, LogOutIcon, Menu, X } from 'lucide-react';
 //@ts-ignore
 import logoKeSamping from '../../imports/logo_ke_samping.png';
+import { supabase } from '../utils/supabaseClient';
+import { useNavigate } from 'react-router';
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
@@ -13,10 +17,14 @@ export function Sidebar() {
     { icon: Bell, label: 'Notifikasi', path: '/notifikasi' },
     { icon: BarChart3, label: 'Dashboard Analitik', path: '/dashboard-analitik' },
     { icon: User, label: 'Profil', path: '/profil' },
-    { icon: LogOutIcon, label: 'Logout', path: '/logout' },
   ];
 
   const closeMobile = () => setMobileOpen(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
 
   return (
     <>
@@ -47,6 +55,13 @@ export function Sidebar() {
               </Link>
             );
           })}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-white hover:bg-white/10 w-full text-left"
+          >
+            <LogOutIcon size={20} />
+            <span>Logout</span>
+          </button>
         </nav>
       </div>
 
@@ -102,6 +117,13 @@ export function Sidebar() {
                   </Link>
                 );
               })}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors text-white hover:bg-white/10 w-full text-left"
+              >
+                <LogOutIcon size={20} />
+                <span>Logout</span>
+              </button>
             </nav>
           </div>
         </div>
