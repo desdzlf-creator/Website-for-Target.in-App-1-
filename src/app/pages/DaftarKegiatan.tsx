@@ -346,4 +346,4 @@ export function InputKegiatan() {
   );
 }
 
-export const DaftarKegiatan = InputKegiatan;
+
