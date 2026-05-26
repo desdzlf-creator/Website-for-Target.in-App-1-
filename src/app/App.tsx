@@ -1,59 +1,58 @@
-import { useEffect } from 'react';
-import { RouterProvider } from 'react-router';
-import { router } from './routes';
+import { createBrowserRouter, redirect } from 'react-router';
+import { Home } from './pages/Home';
+import { Login } from './pages/Login';
+import { Register } from './pages/Register';
+import { Layout } from './components/Layout';
+import { Dashboard } from './pages/Dashboard';
+import { DaftarKegiatan } from './pages/DaftarKegiatan';
+import { InputKegiatan } from './pages/InputKegiatan';
+import { Notifikasi } from './pages/Notifikasi';
+import { DashboardAnalitik } from './pages/DashboardAnalitik';
+import { Profil } from './pages/Profil';
 import { supabase } from './utils/supabaseClient';
 
-export default function App() {
-  useEffect(() => {
-    // Restore session saat app pertama kali dibuka
-    const restoreSession = async () => {
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+// Satpam pelindung halaman dashboard (Pure Supabase Auth)
+const protectedLoader = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return redirect('/login');
+  }
+  return null;
+};
 
-        console.log('✅ RESTORE SESSION:', session);
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-        }
-
-        if (session?.user) {
-          console.log(
-            '✅ Auth user found:',
-            session.user.email,
-            'ID:',
-            session.user.id
-          );
-        } else {
-          console.log('⚠️ No active session on app startup');
-        }
-      } catch (err) {
-        console.error('❌ restoreSession error:', err);
-      }
-    };
-
-    restoreSession();
-
-    // Listener auth - Langsung responsif tanpa blocked fungsi lain
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 AUTH EVENT:', event);
-      console.log('🔄 SESSION:', session);
-
-      if (session?.user) {
-        console.log('✅ Auth state changed - user logged in:', session.user.email);
-      } else {
-        console.log('✅ Auth state changed to signed out or no session');
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  return <RouterProvider router={router} />;
-}
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    children: [
+      { index: true, Component: Home },
+      {
+        path: 'logout',
+        loader: async () => {
+          await supabase.auth.signOut();
+          return redirect('/login');
+        },
+      },
+      {
+        path: 'login',
+        Component: Login,
+      },
+      {
+        path: 'register',
+        Component: Register,
+      },
+      {
+        path: '/',
+        Component: Layout, // Pembungkus utama navbar kiri
+        loader: protectedLoader, // Menjaga seluruh halaman di dalam layout ini
+        children: [
+          { path: 'dashboard', Component: Dashboard },
+          { path: 'daftar-kegiatan', Component: DaftarKegiatan }, // ✅ BENER (Membuka list tabel)
+          { path: 'input-kegiatan', Component: InputKegiatan },   // ✅ BENER (Membuka form input)
+          { path: 'notifikasi', Component: Notifikasi },
+          { path: 'dashboard-analitik', Component: DashboardAnalitik },
+          { path: 'profil', Component: Profil },
+        ],
+      },
+    ],
+  },
+]);
