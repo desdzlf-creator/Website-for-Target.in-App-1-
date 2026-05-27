@@ -38,7 +38,7 @@ const KATEGORI_COLORS: Record<string, string> = {
   Pribadi:    '#6C8EFF',
 };
 
-const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
 /* ── Helpers ── */
 function median(arr: number[]): number {
