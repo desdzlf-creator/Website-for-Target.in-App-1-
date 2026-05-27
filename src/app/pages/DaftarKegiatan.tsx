@@ -125,10 +125,9 @@ export function DaftarKegiatan() {
     });
 
   /* ── UPDATE STATUS DI SUPABASE ── */
-  const handleStatus = async (id: string, current: string, tanggal: string) => {
-  const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
-  
-  // Hitung terlambat: hanya berlaku saat baru selesai, bukan saat di-undo
+const handleStatus = async (id: string, current: string, tanggal: string) => {
+  const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Sudah Selesai'; // ✅ fix
+
   const terlambat =
     nextStatus === 'Sudah Selesai'
       ? new Date() > new Date(tanggal + 'T23:59:59')
@@ -141,8 +140,7 @@ export function DaftarKegiatan() {
       .eq('id', id);
 
     if (error) throw error;
-    
-    // Beritahu DashboardAnalitik supaya re-fetch
+
     window.dispatchEvent(new Event('kegiatan-updated'));
     reload();
   } catch (err) {
