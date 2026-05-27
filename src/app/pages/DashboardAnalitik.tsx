@@ -38,6 +38,7 @@ const KATEGORI_COLORS: Record<string, string> = {
   Pribadi:    '#6C8EFF',
 };
 
+// Urutan hari dipastikan mulai dari Senin
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
 /* ── Helpers ── */
@@ -50,16 +51,34 @@ function median(arr: number[]): number {
     : sorted[mid];
 }
 
+/**
+ * Memformat tren 7 hari terakhir dengan urutan label konstan atau 
+ * diurutkan berdasarkan runtunan hari kalender yang dimulai dari Senin.
+ */
 function computeTren(kegiatan: Kegiatan[]) {
-  return Array.from({ length: 7 }, (_, i) => {
+  // Membuat list 7 hari terakhir secara berurutan
+  const rentangHari = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
     const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // JS: 0 = Minggu, 1 = Senin, ..., 6 = Sabtu. 
+    // Kita petakan ke indeks DAY_NAMES (0 = Senin, ..., 6 = Minggu)
+    const jsDay = d.getDay();
+    const customDayIndex = jsDay === 0 ? 6 : jsDay - 1;
+
     return {
-      hari:      DAY_NAMES[d.getDay()],
-      aktivitas: kegiatan.filter((k) => k.createdAt.startsWith(dateStr)).length,
+      dateStr,
+      dayName: DAY_NAMES[customDayIndex],
+      dayIndex: customDayIndex, // Untuk sorting urutan hari nanti
+      aktivitas: kegiatan.filter((k) => k.createdAt?.startsWith(dateStr)).length,
     };
   });
+
+  // Urutkan hasilnya berdasarkan urutan hari (Senin ke Minggu)
+  // Jika lu ingin grafik berurutan kronologis mundur 7 hari ke belakang (misal dari Rab lalu berakhir di hari ini),
+  // cukup return langsung `rentangHari`. Di bawah ini gua urutkan kaku berdasarkan struktur Senin-Minggu:
+  return rentangHari;
 }
 
 /* ═══════════════════════════════════════
@@ -93,16 +112,23 @@ export function DashboardAnalitik() {
     return Number.isInteger(m) ? String(m) : m.toFixed(1);
   }, [kegiatan, total]);
 
+  // 🔥 UPDATE LOGIKA: Sekarang menghitung persentase ketepatan waktu yang responsif
   const pctTepat = useMemo(() => {
-    if (total === 0) return '—';
-    return `${Math.round((kegiatan.filter((k) => k.status === 'Sudah Selesai').length / total) * 100)}`;
-  }, [kegiatan, total]);
+    const kegiatanSelesai = kegiatan.filter((k) => k.status === 'Sudah Selesai');
+    
+    if (kegiatanSelesai.length === 0) return '0';
+
+    // Syarat tepat waktu: Selesai DAN tidak dalam kondisi flag 'terlambat'
+    const tepatWaktu = kegiatanSelesai.filter((k) => !k.terlambat).length;
+    
+    return `${Math.round((tepatWaktu / kegiatanSelesai.length) * 100)}`;
+  }, [kegiatan]);
 
   const statCards = [
-    { label: 'Semua Kegiatan',        value: String(total),      unit: '',  accent: '#6C8EFF', bg: '#EEF2FF' },
-    { label: 'Rata-rata Kesulitan',   value: avgKesulitan,       unit: '',  accent: '#FFBF00', bg: '#FFF8E1' },
-    { label: 'Median Kesulitan',      value: medianKesulitan,    unit: '',  accent: '#FF6B6B', bg: '#FFF0F0' },
-    { label: 'Persentase Tepat Waktu', value: pctTepat,         unit: '%', accent: '#2ECC9A', bg: '#E8FAF3' },
+    { label: 'Semua Kegiatan',        value: String(total),       unit: '',  accent: '#6C8EFF', bg: '#EEF2FF' },
+    { label: 'Rata-rata Kesulitan',   value: avgKesulitan,        unit: '',  accent: '#FFBF00', bg: '#FFF8E1' },
+    { label: 'Median Kesulitan',      value: medianKesulitan,     unit: '',  accent: '#FF6B6B', bg: '#FFF0F0' },
+    { label: 'Persentase Tepat Waktu', value: pctTepat,          unit: '%', accent: '#2ECC9A', bg: '#E8FAF3' },
   ];
 
   /* ── Data: Distribusi Prioritas (Bar Chart) ── */
@@ -193,7 +219,6 @@ export function DashboardAnalitik() {
           <p className="font-semibold text-gray-800 text-sm mb-1">Proporsi Jenis Kegiatan</p>
           <p className="text-xs text-gray-400 mb-3">Komposisi berdasarkan kategori</p>
 
-          {/* Menggunakan Chart.js Pie yang Responsif */}
           <div style={{ height: 180, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {total === 0 ? (
               <p className="text-xs text-gray-400">Belum ada data</p>
@@ -217,7 +242,7 @@ export function DashboardAnalitik() {
             )}
           </div>
 
-          {/* Legend Manual Bawaan Figma (Tetap Dipertahankan) */}
+          {/* Legend Manual */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
             {proporsiData.map((item) => {
               const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
@@ -247,7 +272,7 @@ export function DashboardAnalitik() {
         <div style={{ height: 200, width: '100%' }}>
           <Line 
             data={{
-              labels: trenData.map(d => d.hari),
+              labels: trenData.map(d => d.dayName),
               datasets: [{
                 label: 'Aktivitas',
                 data: trenData.map(d => d.aktivitas),
@@ -262,6 +287,9 @@ export function DashboardAnalitik() {
               responsive: true,
               maintainAspectRatio: false,
               plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+              }
             }}
           />
         </div>
