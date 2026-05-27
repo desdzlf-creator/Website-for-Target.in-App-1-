@@ -42,6 +42,13 @@ const KATEGORI_COLORS: Record<string, string> = {
   Pribadi:    '#6C8EFF',
 };
 
+function getTepatWaktuColor(pct: number): string {
+  if (pct >= 80) return '#2ECC9A'; // hijau
+  if (pct >= 50) return '#E6A800'; // kuning
+  if (pct >= 10) return '#FF6B6B'; // merah
+  return '#9CA3AF';                 // abu (0%)
+}
+
 // Urutan hari dipastikan mulai dari Senin
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
@@ -152,7 +159,7 @@ export function DashboardAnalitik() {
     { label: 'Semua Kegiatan',        value: String(total),       unit: '',  accent: '#6C8EFF', bg: '#EEF2FF' },
     { label: 'Rata-rata Kesulitan',   value: avgKesulitan,        unit: '',  accent: '#FFBF00', bg: '#FFF8E1' },
     { label: 'Median Kesulitan',      value: medianKesulitan,     unit: '',  accent: '#FF6B6B', bg: '#FFF0F0' },
-    { label: 'Persentase Tepat Waktu', value: pctTepat,          unit: '%', accent: '#2ECC9A', bg: '#E8FAF3' },
+    { label: 'Persentase Tepat Waktu', value: pctTepat, unit: '%', accent: getTepatWaktuColor(Number(pctTepat)), bg: '#E8FAF3' },
   ];
 
   /* ── Data: Distribusi Prioritas (Bar Chart) ── */
