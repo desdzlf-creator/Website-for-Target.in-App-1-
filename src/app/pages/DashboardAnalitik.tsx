@@ -10,12 +10,15 @@ import {
   Title, 
   Tooltip, 
   Legend 
-} from 'chart.js';
+} 
+  from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import {
   getKegiatan,
   type Kegiatan,
-} from '../utils/kegiatanStore';
+} 
+  from '../utils/kegiatanStore';
 
 // Registrasi semua komponen Chart.js agar bisa dipakai di React
 ChartJS.register(
@@ -27,7 +30,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ChartDataLabels
 );
 
 /* ── Constants ── */
@@ -256,7 +260,23 @@ export function DashboardAnalitik() {
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  plugins: { legend: { display: false } }
+                  plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                      display: (ctx) => {
+                        // Hanya tampilkan label kalau slice >= 10% supaya tidak penuh
+                        const val = ctx.dataset.data[ctx.dataIndex] as number;
+                        const sum = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                        return sum > 0 && (val / sum) >= 0.1;
+                      },
+                      formatter: (value: number, ctx) => {
+                        const sum = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                        return sum > 0 ? `${Math.round((value / sum) * 100)}%` : '';
+                      },
+                      color: '#fff',
+                      font: { weight: 'bold', size: 12 },
+                    },
+                  },
                 }}
               />
             )}
