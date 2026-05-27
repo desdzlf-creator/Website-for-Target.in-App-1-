@@ -19,8 +19,11 @@ let kegiatanCache: Kegiatan[] = [];
 
 export function hitungSisaHari(tanggal: string): number {
   const now = new Date();
+  // Normalize ke tengah malam waktu lokal
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(tanggal + 'T00:00:00');
-  const diff = target.getTime() - now.getTime();
+  const targetLocal = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diff = targetLocal.getTime() - today.getTime();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
