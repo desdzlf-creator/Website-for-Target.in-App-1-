@@ -19,12 +19,23 @@ let kegiatanCache: Kegiatan[] = [];
 
 export function hitungSisaHari(tanggal: string): number {
   const now = new Date();
-  // Normalize ke tengah malam waktu lokal
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(tanggal + 'T00:00:00');
-  const targetLocal = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  const diff = targetLocal.getTime() - today.getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  // tanggal hari ini lokal
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  // pecah manual YYYY-MM-DD
+  const [year, month, day] = tanggal.split('-').map(Number);
+
+  // bikin date lokal manual
+  const target = new Date(year, month - 1, day);
+
+  const diffTime = target.getTime() - today.getTime();
+
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
 export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
