@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Mail, Settings, Save, CheckCircle2 } from 'lucide-react';
 import { getUser, useUserStore, saveUser, getFirstName } from '../utils/userStore';
 import { getKegiatan, type Kegiatan } from '../utils/kegiatanStore';
+import { supabase } from '../utils/supabaseClient';
 
 /* ── ambil inisial dari nama lengkap ── */
 function getInitials(nama: string): string {
@@ -13,10 +14,13 @@ function getInitials(nama: string): string {
 
 export function Profil() {
   /* ── user state ── */
-  const { user, getUser } = useUserStore();
+ const { user, getUser } = useUserStore();
   const [namaInput, setNamaInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [saved, setSaved] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── kegiatan stats ── */
   const [kegiatan, setKegiatan] = useState<Kegiatan[]>([]);
@@ -40,9 +44,22 @@ export function Profil() {
       console.log('📄 PROFIL: Kegiatan loaded:', data.length, 'items');
       setKegiatan(data);
     };
+    
+// Ambil avatar_url dari profiles
+    const fetchAvatar = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', authUser.id)
+        .single();
+      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+    };
 
     fetchUser();
     fetchKegiatan();
+    fetchAvatar();
 
     const handleKegiatanUpdate = () => {
       console.log('📄 PROFIL: kegiatan-updated event received');
@@ -59,6 +76,56 @@ export function Profil() {
       setEmailInput(user.email);
     }
   }, [user]);
+
+    /* ── Upload foto profil ── */
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validasi ukuran max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ukuran foto maksimal 2MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${authUser.id}/avatar.${fileExt}`;
+
+      // Upload ke bucket avatars
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Ambil public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Simpan URL ke tabel profiles
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl + '?t=' + Date.now()); // cache busting
+    } catch (err) {
+      console.error('❌ Upload avatar error:', err);
+      alert('Gagal upload foto. Silakan coba lagi.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   /* ── computed stats ── */
   const total          = kegiatan.length;
@@ -91,19 +158,58 @@ export function Profil() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
 
-            {/* Avatar + nama + email */}
+            {/* Avatar */}
             <div className="flex flex-col items-center">
-              <div className="w-28 h-28 rounded-full bg-[#FFBF00] flex items-center justify-center mb-4 shadow-md">
-                <span className="text-white text-3xl font-bold select-none">
-                  {displayInisial}
-                </span>
+              <div className="relative w-28 h-28 mb-4">
+                {/* Foto atau inisial */}
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Foto Profil"
+                    className="w-28 h-28 rounded-full object-cover shadow-md"
+                  />
+                ) : (
+                  <div className="w-28 h-28 rounded-full bg-[#FFBF00] flex items-center justify-center shadow-md">
+                    <span className="text-white text-3xl font-bold select-none">
+                      {displayInisial}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tombol kamera */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="absolute bottom-0 right-0 w-9 h-9 bg-white border-2 border-[#FFBF00] rounded-full flex items-center justify-center shadow-md hover:bg-[#FFBF00] hover:text-white transition-colors group"
+                  title="Ganti foto profil"
+                >
+                  {uploading ? (
+                    <div className="w-4 h-4 border-2 border-[#FFBF00] border-t-transparent rounded-full animate-spin group-hover:border-white group-hover:border-t-transparent" />
+                  ) : (
+                    <Camera size={16} className="text-[#FFBF00] group-hover:text-white transition-colors" />
+                  )}
+                </button>
+
+                {/* Input file tersembunyi */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
+
               <h2 className="text-lg font-bold text-gray-800 text-center break-all">
                 {displayNama}
               </h2>
               <p className="text-sm text-gray-400 text-center break-all mt-0.5">
                 {displayEmail}
               </p>
+              {uploading && (
+                <p className="text-xs text-[#FFBF00] mt-2">Mengupload foto...</p>
+              )}
             </div>
 
             {/* Stats */}
@@ -121,7 +227,6 @@ export function Profil() {
                 <span className="font-bold text-[#FFBF00]">{targetTercapai}</span>
               </div>
 
-              {/* Progress bar selesai */}
               {total > 0 && (
                 <div className="pt-1">
                   <div className="flex justify-between text-xs text-gray-400 mb-1">
@@ -138,7 +243,6 @@ export function Profil() {
               )}
             </div>
 
-            {/* Mini stat pills */}
             {total > 0 && (
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="bg-yellow-50 rounded-xl px-3 py-2 text-center">
@@ -203,9 +307,8 @@ export function Profil() {
                   Simpan Perubahan
                 </button>
 
-                {/* Feedback sukses */}
                 {saved && (
-                  <span className="flex items-center gap-1.5 text-green-500 text-sm font-medium animate-fade-in">
+                  <span className="flex items-center gap-1.5 text-green-500 text-sm font-medium">
                     <CheckCircle2 size={16} />
                     Tersimpan!
                   </span>
