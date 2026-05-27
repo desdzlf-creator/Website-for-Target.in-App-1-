@@ -56,29 +56,29 @@ function median(arr: number[]): number {
  * diurutkan berdasarkan runtunan hari kalender yang dimulai dari Senin.
  */
 function computeTren(kegiatan: Kegiatan[]) {
-  // Membuat list 7 hari terakhir secara berurutan
-  const rentangHari = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+  // 1. Inisialisasi data default dari Senin sampai Minggu dengan aktivitas 0
+  const trenStatis = DAY_NAMES.map((hari) => ({
+    hari,
+    aktivitas: 0,
+  }));
+
+  // 2. Hitung aktivitas berdasarkan tanggal createdAt kegiatan
+  kegiatan.forEach((k) => {
+    if (!k.createdAt) return;
+
+    const d = new Date(k.createdAt);
+    const jsDay = d.getDay(); // 0 = Minggu, 1 = Senin, dst.
     
-    // JS: 0 = Minggu, 1 = Senin, ..., 6 = Sabtu. 
-    // Kita petakan ke indeks DAY_NAMES (0 = Senin, ..., 6 = Minggu)
-    const jsDay = d.getDay();
+    // Petakan indeks JS Day ke indeks DAY_NAMES (Senin = 0 ... Minggu = 6)
     const customDayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
-    return {
-      dateStr,
-      dayName: DAY_NAMES[customDayIndex],
-      dayIndex: customDayIndex, // Untuk sorting urutan hari nanti
-      aktivitas: kegiatan.filter((k) => k.createdAt?.startsWith(dateStr)).length,
-    };
+    // Tambahkan jumlah aktivitas di hari tersebut
+    if (customDayIndex >= 0 && customDayIndex < 7) {
+      trenStatis[customDayIndex].aktivitas += 1;
+    }
   });
 
-  // Urutkan hasilnya berdasarkan urutan hari (Senin ke Minggu)
-  // Jika lu ingin grafik berurutan kronologis mundur 7 hari ke belakang (misal dari Rab lalu berakhir di hari ini),
-  // cukup return langsung `rentangHari`. Di bawah ini gua urutkan kaku berdasarkan struktur Senin-Minggu:
-  return rentangHari;
+  return trenStatis;
 }
 
 /* ═══════════════════════════════════════
