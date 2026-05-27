@@ -56,29 +56,49 @@ function median(arr: number[]): number {
  * diurutkan berdasarkan runtunan hari kalender yang dimulai dari Senin.
  */
 function computeTren(kegiatan: Kegiatan[]) {
-  // 1. Inisialisasi data default dari Senin sampai Minggu dengan aktivitas 0
-  const trenStatis = DAY_NAMES.map((hari) => ({
-    hari,
-    aktivitas: 0,
-  }));
+  const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  
+  // 1. Cari tahu tanggal hari Senin di MINGGU INI
+  const sekarang = new Date();
+  const hariIni = sekarang.getDay(); // 0 = Minggu, 1 = Senin, dst.
+  
+  // Hitung selisih hari untuk mundur ke hari Senin minggu ini
+  // Kalau hari ini Minggu (0), kita mundur 6 hari. Kalau Senin (1), mundur 0 hari.
+  const selisihKeSenin = hariIni === 0 ? 6 : hariIni - 1;
+  
+  const seninMingguIni = new Date(sekarang);
+  seninMingguIni.setDate(sekarang.getDate() - selisihKeSenin);
 
-  // 2. Hitung aktivitas berdasarkan tanggal createdAt kegiatan
+  // 2. Buat array statis 7 hari, FIX dimulai dari Senin minggu ini sampai Minggu besok
+  const rentangMingguIni = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(seninMingguIni);
+    d.setDate(seninMingguIni.getDate() + i);
+    
+    // Format tanggal standar YYYY-MM-DD
+    const dateStr = d.toISOString().split('T')[0];
+    
+    return {
+      dateStr,
+      hari: DAY_NAMES[i], // Dijamin urut: Sen, Sel, Rab, Kam, Jum, Sab, Min
+      aktivitas: 0,
+    };
+  });
+
+  // 3. Masukkan data kegiatan yang cocok dengan tanggal di minggu ini
   kegiatan.forEach((k) => {
     if (!k.createdAt) return;
-
-    const d = new Date(k.createdAt);
-    const jsDay = d.getDay(); // 0 = Minggu, 1 = Senin, dst.
     
-    // Petakan indeks JS Day ke indeks DAY_NAMES (Senin = 0 ... Minggu = 6)
-    const customDayIndex = jsDay === 0 ? 6 : jsDay - 1;
-
-    // Tambahkan jumlah aktivitas di hari tersebut
-    if (customDayIndex >= 0 && customDayIndex < 7) {
-      trenStatis[customDayIndex].aktivitas += 1;
+    // Ambil format YYYY-MM-DD dari k.createdAt
+    const tanggalKegiatan = k.createdAt.substring(0, 10);
+    
+    // Cocokkan dengan salah satu tanggal di rentang minggu ini
+    const slotHari = rentangMingguIni.find(d => d.dateStr === tanggalKegiatan);
+    if (slotHari) {
+      slotHari.aktivitas += 1;
     }
   });
 
-  return trenStatis;
+  return rentangMingguIni;
 }
 
 /* ═══════════════════════════════════════
