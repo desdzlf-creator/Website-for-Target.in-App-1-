@@ -25,11 +25,10 @@ export function hitungSisaHari(tanggal: string): number {
 }
 
 export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
-  if (skor >= 70) return 'Tinggi';
+  if (skor >= 60) return 'Tinggi';
   if (skor >= 40) return 'Sedang';
   return 'Rendah';
 }
-
 export function hitungPrioritas(options: {
   kelompok: boolean;
   kategori: string;
@@ -37,11 +36,18 @@ export function hitungPrioritas(options: {
   tingkatKesulitan: number;
   terlambat: boolean;
 }): number {
-  const base = options.tingkatKesulitan * 10;
-  const kelompokBonus = options.kelompok ? 5 : 0;
-  const timeFactor = Math.max(0, 30 - options.sisaHari * 2);
-  const lateBonus = options.terlambat ? 20 : 0;
-  return Math.min(100, Math.max(0, base + kelompokBonus + timeFactor + lateBonus));
+  const bobotKategori = 
+    options.kategori === 'Tugas' || options.kategori === 'Ujian' ? 25 : 15;
+
+  const bobotKesulitan = 25; // skala 1-5 selalu ≤ 8.45
+
+  const nilaiKesulitan = options.tingkatKesulitan * 4;
+
+  const bobotJenis = options.kelompok ? 15 : 5;
+
+  const bonusTerlambat = options.terlambat ? 15 : 0;
+
+  return bobotKategori + bobotKesulitan + nilaiKesulitan + bobotJenis + bonusTerlambat;
 }
 
 export function formatTanggal(tanggal: string): string {
