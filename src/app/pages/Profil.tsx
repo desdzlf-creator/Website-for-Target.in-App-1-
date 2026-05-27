@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Mail, Settings, Save, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Settings, Save, CheckCircle2, Camera } from 'lucide-react';
 import { getUser, useUserStore, saveUser, getFirstName } from '../utils/userStore';
 import { getKegiatan, type Kegiatan } from '../utils/kegiatanStore';
 import { supabase } from '../utils/supabaseClient';
