@@ -125,20 +125,30 @@ export function DaftarKegiatan() {
     });
 
   /* ── UPDATE STATUS DI SUPABASE ── */
-  const handleStatus = async (id: string, current: string) => {
-    const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
-    try {
-      const { error } = await supabase
-        .from('kegiatans') // Menyelaraskan nama tabel menjadi 'kegiatans'
-        .update({ status: nextStatus })
-        .eq('id', id);
+  const handleStatus = async (id: string, current: string, tanggal: string) => {
+  const nextStatus = current === 'Sudah Selesai' ? 'Belum Selesai' : 'Selesai';
+  
+  // Hitung terlambat: hanya berlaku saat baru selesai, bukan saat di-undo
+  const terlambat =
+    nextStatus === 'Selesai'
+      ? new Date() > new Date(tanggal + 'T23:59:59')
+      : false;
 
-      if (error) throw error;
-      reload();
-    } catch (err) {
-      console.error('❌ Gagal update status:', err);
-    }
-  };
+  try {
+    const { error } = await supabase
+      .from('kegiatans')
+      .update({ status: nextStatus, terlambat })
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    // Beritahu DashboardAnalitik supaya re-fetch
+    window.dispatchEvent(new Event('kegiatan-updated'));
+    reload();
+  } catch (err) {
+    console.error('❌ Gagal update status:', err);
+  }
+};
 
   /* ── HAPUS DATA DI SUPABASE ── */
   const handleDelete = async (id: string) => {
@@ -292,7 +302,7 @@ export function DaftarKegiatan() {
                 </span>
                 <span>
                   <button
-                    onClick={() => handleStatus(item.id, item.status)}
+                    onClick={() => handleStatus(item.id, item.status, item.tanggal)}
                     className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1"
                     style={statusStyle[item.status]}
                     title="Klik untuk ubah status"
@@ -340,7 +350,7 @@ export function DaftarKegiatan() {
                     {item.prioritas}
                   </span>
                   <button
-                    onClick={() => handleStatus(item.id, item.status)}
+                    onClick={() => handleStatus(item.id, item.status, item.tanggal)}
                     className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 flex items-center gap-1"
                     style={statusStyle[item.status]}
                   >
