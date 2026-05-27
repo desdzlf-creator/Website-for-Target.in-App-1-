@@ -292,7 +292,7 @@ export function DashboardAnalitik() {
         <div style={{ height: 200, width: '100%' }}>
           <Line 
             data={{
-              labels: trenData.map(d => d.dayName),
+              labels: trenData.map(d => d.hari),
               datasets: [{
                 label: 'Aktivitas',
                 data: trenData.map(d => d.aktivitas),
