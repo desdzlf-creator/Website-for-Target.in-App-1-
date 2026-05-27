@@ -39,8 +39,8 @@ export function hitungSisaHari(tanggal: string): number {
 }
 
 export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
-  if (skor >= 60) return 'Tinggi';
-  if (skor >= 40) return 'Sedang';
+  if (skor >= 80) return 'Tinggi';
+  if (skor >= 60) return 'Sedang';
   return 'Rendah';
 }
 export function hitungPrioritas(options: {
