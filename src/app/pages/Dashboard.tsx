@@ -29,6 +29,13 @@ const PRIORITAS_BG: Record<string, string> = {
   Rendah: '#E8FAF3',
 };
 
+function getTepatWaktuColor(pct: number): { accent: string; bg: string } {
+  if (pct >= 80) return { accent: '#2ECC9A', bg: '#E8FAF3' };
+  if (pct >= 50) return { accent: '#E6A800', bg: '#FFF8E1' };
+  if (pct >= 10) return { accent: '#FF6B6B', bg: '#FFE8E8' };
+  return { accent: '#9CA3AF', bg: '#F3F4F6' };
+}
+
 /* ── Custom pie label ── */
 const RADIAN = Math.PI / 180;
 function renderPieLabel({
@@ -84,8 +91,11 @@ export function Dashboard() {
   const cTinggi    = kegiatan.filter((k) => k.prioritas === 'Tinggi').length;
   const cSedang    = kegiatan.filter((k) => k.prioritas === 'Sedang').length;
   const cRendah    = kegiatan.filter((k) => k.prioritas === 'Rendah').length;
-  const cSelesai   = kegiatan.filter((k) => k.status === 'Sudah Selesai').length;
-  const pctSelesai = total > 0 ? Math.round((cSelesai / total) * 100) : 0;
+  const kegiatanSelesai = kegiatan.filter((k) => k.status === 'Sudah Selesai');
+  const tepatWaktu      = kegiatanSelesai.filter((k) => !k.terlambat).length;
+  const pctSelesai      = kegiatanSelesai.length > 0
+    ? Math.round((tepatWaktu / kegiatanSelesai.length) * 100)
+    : 0;
   const avgKesulitan =
     total > 0
       ? (kegiatan.reduce((s, k) => s + k.tingkatKesulitan, 0) / total).toFixed(1)
@@ -222,7 +232,7 @@ export function Dashboard() {
             </p>
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { value: `${pctSelesai}%`, label: 'Selesai Tepat Waktu', accent: '#2ECC9A', bg: '#E8FAF3' },
+                { value: `${pctSelesai}%`, label: 'Selesai Tepat Waktu', ...getTepatWaktuColor(pctSelesai) },
                 { value: avgKesulitan,     label: 'Rata-rata Kesulitan', accent: '#FFBF00', bg: '#FFF8E1' },
               ].map((s) => (
                 <div
