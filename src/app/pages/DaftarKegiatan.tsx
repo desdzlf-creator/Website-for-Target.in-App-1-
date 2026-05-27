@@ -130,7 +130,7 @@ export function DaftarKegiatan() {
   
   // Hitung terlambat: hanya berlaku saat baru selesai, bukan saat di-undo
   const terlambat =
-    nextStatus === 'Selesai'
+    nextStatus === 'Sudah Selesai'
       ? new Date() > new Date(tanggal + 'T23:59:59')
       : false;
 
