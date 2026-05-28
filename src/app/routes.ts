@@ -24,14 +24,20 @@ export const router = createBrowserRouter([
   {
     path: '/',
     children: [
-      { index: true, Component: Home },
-      {
-        path: 'logout',
-        loader: async () => {
-          await supabase.auth.signOut();
-          return redirect('/login');
-        },
-      },
+     {
+  index: true,
+  loader: async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session) {
+      return redirect('/dashboard');
+    }
+
+    return redirect('/login');
+  },
+},
       {
         path: 'login',
         Component: Login,
