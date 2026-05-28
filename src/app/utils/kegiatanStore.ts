@@ -20,18 +20,22 @@ let kegiatanCache: Kegiatan[] = [];
 export function hitungSisaHari(tanggal: string): number {
   const now = new Date();
 
-  // tanggal hari ini lokal
   const today = new Date(
     now.getFullYear(),
     now.getMonth(),
     now.getDate()
   );
 
-  // pecah manual YYYY-MM-DD
-  const [year, month, day] = tanggal.split('-').map(Number);
+  let target: Date;
 
-  // bikin date lokal manual
-  const target = new Date(year, month - 1, day);
+  // format YYYY-MM-DD
+  if (tanggal.includes('-')) {
+    const [year, month, day] = tanggal.split('-').map(Number);
+    target = new Date(year, month - 1, day);
+  } else {
+    // fallback format lain
+    target = new Date(tanggal);
+  }
 
   const diffTime = target.getTime() - today.getTime();
 
