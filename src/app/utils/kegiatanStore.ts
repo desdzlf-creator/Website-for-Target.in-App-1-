@@ -62,21 +62,19 @@ export function hitungPrioritas(options: {
 
   const bonusTerlambat = options.terlambat ? 15 : 0;
 
+  let bobotDeadline = 0;
+
+  if (options.sisaHari <= 3) {
+    bobotDeadline = 10;
+  }
+
   return (
     bobotKategori +
     nilaiKesulitan +
     bobotJenis +
-    bonusTerlambat
+    bonusTerlambat +
+    bobotDeadline
   );
-}
-
-export function formatTanggal(tanggal: string): string {
-  const date = new Date(tanggal + 'T00:00:00');
-  return date.toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
 }
 
 export function formatDeadlineLabel(tanggal: string): string {
