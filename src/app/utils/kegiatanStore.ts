@@ -62,10 +62,17 @@ export function hitungPrioritas(options: {
 
   const bonusTerlambat = options.terlambat ? 15 : 0;
 
+  // LOGIKA TENGGAT
   let bobotDeadline = 0;
 
-  if (options.sisaHari <= 3) {
+  if (options.sisaHari <= 1) {
+    bobotDeadline = 20;
+  } else if (options.sisaHari <= 3) {
+    bobotDeadline = 15;
+  } else if (options.sisaHari <= 7) {
     bobotDeadline = 10;
+  } else {
+    bobotDeadline = 5;
   }
 
   return (
@@ -76,7 +83,6 @@ export function hitungPrioritas(options: {
     bobotDeadline
   );
 }
-
 export function formatDeadlineLabel(tanggal: string): string {
   const sisa = hitungSisaHari(tanggal);
   if (sisa < 0) return `Lewat ${Math.abs(sisa)} hari`;
