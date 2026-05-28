@@ -50,10 +50,11 @@ export function hitungPrioritas(options: {
   tingkatKesulitan: number;
   terlambat: boolean;
 }): number {
-  const bobotKategori = 
-    options.kategori === 'Tugas' || options.kategori === 'Ujian' ? 25 : 15;
 
-  const bobotKesulitan = 25; // skala 1-5 selalu ≤ 8.45
+  const bobotKategori =
+    options.kategori === 'Tugas' || options.kategori === 'Ujian'
+      ? 25
+      : 15;
 
   const nilaiKesulitan = options.tingkatKesulitan * 4;
 
@@ -61,7 +62,12 @@ export function hitungPrioritas(options: {
 
   const bonusTerlambat = options.terlambat ? 15 : 0;
 
-  return bobotKategori + bobotKesulitan + nilaiKesulitan + bobotJenis + bonusTerlambat;
+  return (
+    bobotKategori +
+    nilaiKesulitan +
+    bobotJenis +
+    bonusTerlambat
+  );
 }
 
 export function formatTanggal(tanggal: string): string {
