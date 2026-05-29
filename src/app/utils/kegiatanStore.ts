@@ -42,6 +42,15 @@ export function hitungSisaHari(tanggal: string): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
+export function formatTanggal(tanggal: string): string {
+  const date = new Date(tanggal + 'T00:00:00');
+  return date.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
   if (skor >= 80) return 'Tinggi';
   if (skor >= 60) return 'Sedang';
