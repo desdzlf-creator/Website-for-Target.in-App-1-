@@ -63,38 +63,19 @@ export function hitungPrioritas(options: {
   tingkatKesulitan: number;
   terlambat: boolean;
 }): number {
-
-  const bobotKategori =
-    options.kategori === 'Tugas' || options.kategori === 'Ujian'
-      ? 25
-      : 15;
-
-  const nilaiKesulitan = options.tingkatKesulitan * 4;
-
-  const bobotJenis = options.kelompok ? 15 : 5;
-
+  const bobotJenis = 5;        // semua jenis sama
+  const bobotKategori = 15;    // semua kategori sama
+  const bobotTenggat = 10;     // flat
+  const bobotKesulitan = 20;   // flat, tidak dikalikan
   const bonusTerlambat = options.terlambat ? 15 : 0;
 
-  // LOGIKA TENGGAT
-  let bobotDeadline = 0;
+  return bobotJenis + bobotKategori + bobotTenggat + bobotKesulitan + bonusTerlambat;
+}
 
-  if (options.sisaHari <= 1) {
-    bobotDeadline = 20;
-  } else if (options.sisaHari <= 3) {
-    bobotDeadline = 15;
-  } else if (options.sisaHari <= 7) {
-    bobotDeadline = 10;
-  } else {
-    bobotDeadline = 5;
-  }
-
-  return (
-    bobotKategori +
-    nilaiKesulitan +
-    bobotJenis +
-    bonusTerlambat +
-    bobotDeadline
-  );
+export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
+  if (skor >= 80) return 'Tinggi';
+  if (skor >= 60) return 'Sedang';
+  return 'Rendah';
 }
 export function formatDeadlineLabel(tanggal: string): string {
   const sisa = hitungSisaHari(tanggal);
