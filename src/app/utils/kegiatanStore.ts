@@ -51,12 +51,6 @@ export function formatTanggal(tanggal: string): string {
   });
 }
 
-export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
-  if (skor >= 80) return 'Tinggi';
-  if (skor >= 60) return 'Sedang';
-  return 'Rendah';
-}
-
 export function hitungPrioritas(options: {
   kelompok: boolean;
   kategori: string;
