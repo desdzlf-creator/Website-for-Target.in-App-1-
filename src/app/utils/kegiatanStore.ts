@@ -56,6 +56,7 @@ export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
   if (skor >= 60) return 'Sedang';
   return 'Rendah';
 }
+
 export function hitungPrioritas(options: {
   kelompok: boolean;
   kategori: string;
@@ -63,13 +64,15 @@ export function hitungPrioritas(options: {
   tingkatKesulitan: number;
   terlambat: boolean;
 }): number {
-  const bobotJenis = 5;        // semua jenis sama
-  const bobotKategori = 15;    // semua kategori sama
-  const bobotTenggat = 10;     // flat
-  const bobotKesulitan = 20;   // flat, tidak dikalikan
-  const bonusTerlambat = options.terlambat ? 15 : 0;
-
-  return bobotJenis + bobotKategori + bobotTenggat + bobotKesulitan + bonusTerlambat;
+  let skor = 0;
+  skor += options.kelompok ? 15 : 5;
+  if (options.kategori === 'Tugas' || options.kategori === 'Ujian') skor += 25;
+  else skor += 15;
+  if (options.sisaHari <= 8) skor += 25;
+  else skor += 10;
+  skor += options.tingkatKesulitan * 4;
+  if (options.terlambat) skor += 15;
+  return skor;
 }
 
 export function skorToPrioritas(skor: number): 'Tinggi' | 'Sedang' | 'Rendah' {
